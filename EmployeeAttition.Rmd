@@ -1,0 +1,136 @@
+---
+title: "HR Attrition"
+output: html_notebook
+---
+
+# Introduction:
+
+In this notebook I will be looking at IBM's employee attrition data obtained from Kaggle https://www.kaggle.com/pavansubhasht/ibm-hr-analytics-attrition-dataset
+
+My goal in this notebook is to predict the likeklihood of employees leaving teh company and assessing the impact this will have on the company.
+```{r}
+library(tidyverse)
+library(caret)
+library(DataExplorer)
+setwd("~/HRattrition")
+df = read.csv("WA_Fn-UseC_-HR-Employee-Attrition 2.csv")
+```
+
+# EDA
+There are 35 variables and 1470 observations of these in this dataframe.  I will use the head() command to display the first few rows
+```{r}
+#taking a quick look at the data 
+df %>% head()
+```
+
+The plot_histogram() function from DataExplorer is useful to plot the distributions of all numeric values in a dataframe.  One thing to note is that Age is the only variable that is nearing normality.
+
+```{r}
+df %>% plot_histogram()
+```
+
+A quick correlation matrix of the numeric features higlights that WorklifeBalance, YearsAtCompany, YearsInCurrentRole, YearsSinceLastPromotion and YearsWithCurrentManager contain much of the same information and are highly correlated.
+
+```{r}
+df %>% select_if(is.numeric) %>%  plot_correlation(type = "c")
+```
+
+The varible of interest for prediction is Attrition a 2 level factor that indicated whether turnover occured with the given observation.  I plot a simple barplot of the Attrition variable.
+
+
+```{r}
+df %>% ggplot(aes(Attrition)) +
+  geom_bar()+
+  ggtitle("Employee Turnover")
+```
+# Modeling 
+
+The first model that I fit is a random forest model.  The model is able to predict perfectly on a test set and has high accuracy on the OOB samples. It is interesting that the test accuracy is higher than the OOB accuracy.
+
+```{r}
+library(caret)
+split = createDataPartition(df$Attrition, p = 0.7, list = F)
+train = df[split,] %>% drop_na()
+test = df[-split,] %>% drop_na()
+```
+
+
+
+```{r}
+library(randomForest)
+rf =randomForest::randomForest(Attrition~., data = df)
+pred = predict(rf, test, type = "response")
+#pred[pred > 0.5] = "Yes"
+#pred[pred < 0.5] = "No"
+mean(pred == test$Attrition)
+confusionMatrix(pred, test$Attrition)
+```
+```{r}
+rf
+```
+
+```{r}
+pred2 = predict(rf, test, type = "prob")
+data.frame(pred2) %>% select(Yes) %>% 
+ggplot(aes(Yes)) + geom_histogram(bins=50) + ggtitle("Probability of Turnover Based on Random Forest")
+
+```
+
+
+```{r}
+varImpPlot(rf, n.var = 15)
+```
+
+```{r}
+df$Attrition = as.factor(df$Attrition)
+```
+
+
+```{r}
+library(pdp)
+rf %>%
+  partial(pred.var = "MonthlyIncome") %>%
+  plotPartial(rug = TRUE, train = train, main = "Monthly Income Partial Dependence Plot")
+```
+
+```{r}
+library(pdp)
+rf %>%
+  partial(pred.var = "Age") %>%
+  plotPartial(rug = TRUE, train = train, main = "Age Partial Dependence Plot")
+```
+```{r}
+library(pdp)
+rf %>%
+  partial(pred.var = "OverTime") %>%
+  plotPartial(rug = TRUE, train = train)
+```
+
+
+
+
+
+```{r}
+linearmod = glm(Attrition~ MonthlyIncome+ Age+ OverTime+ DailyRate + JobRole + MonthlyRate + TotalWorkingYears+ HourlyRate + DistanceFromHome, data = train, family = "binomial")
+pred = predict(linearmod, test, type = "response")
+pred[pred > 0.5] = "Yes"
+pred[pred < 0.5] = "No"
+pred = as.factor(pred)
+mean(pred == test$Attrition)
+confusionMatrix(pred, test$Attrition)
+```
+
+```{r}
+library(MASS)
+coef = add_rownames(data.frame(linearmod$coefficients), "coefficent")
+coef %>% ggplot(aes(coefficent,linearmod.coefficients))+
+  geom_bar(stat="identity")+ labs(y="Effect") +
+  theme(axis.text.x = element_text(size = 8, angle = 90))
+```
+
+```{r}
+as.factor(pred)
+```
+
+
+
