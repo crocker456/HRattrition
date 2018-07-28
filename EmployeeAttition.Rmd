@@ -14,6 +14,7 @@ library(caret)
 library(DataExplorer)
 setwd("~/HRattrition")
 df = read.csv("WA_Fn-UseC_-HR-Employee-Attrition 2.csv")
+df$Over18 = NULL
 ```
 
 # EDA
@@ -27,6 +28,10 @@ The plot_histogram() function from DataExplorer is useful to plot the distributi
 
 ```{r}
 df %>% plot_histogram()
+```
+
+```{r}
+df %>% plot_missing()
 ```
 
 A quick correlation matrix of the numeric features higlights that WorklifeBalance, YearsAtCompany, YearsInCurrentRole, YearsSinceLastPromotion and YearsWithCurrentManager contain much of the same information and are highly correlated.
@@ -45,11 +50,11 @@ df %>% ggplot(aes(Attrition)) +
 ```
 # Modeling 
 
-The first model that I fit is a random forest model.  The model is able to predict perfectly on a test set and has high accuracy on the OOB samples. It is interesting that the test accuracy is higher than the OOB accuracy.
+The first model that I fit is a random forest model.  
 
 ```{r}
 library(caret)
-split = createDataPartition(df$Attrition, p = 0.7, list = F)
+split = createDataPartition(df$Attrition, p = 0.6, list = F)
 train = df[split,] %>% drop_na()
 test = df[-split,] %>% drop_na()
 ```
@@ -58,7 +63,7 @@ test = df[-split,] %>% drop_na()
 
 ```{r}
 library(randomForest)
-rf =randomForest::randomForest(Attrition~., data = df)
+rf =randomForest::randomForest(Attrition~., data = train)
 pred = predict(rf, test, type = "response")
 #pred[pred > 0.5] = "Yes"
 #pred[pred < 0.5] = "No"
@@ -71,14 +76,14 @@ rf
 
 ```{r}
 pred2 = predict(rf, test, type = "prob")
-data.frame(pred2) %>% select(Yes) %>% 
-ggplot(aes(Yes)) + geom_histogram(bins=50) + ggtitle("Probability of Turnover Based on Random Forest")
+data.frame(pred2) %>% select(No) %>% 
+ggplot(aes(No)) + geom_histogram(bins=50) + ggtitle("Probability of Staying Based on Random Forest")
 
 ```
 
 
 ```{r}
-varImpPlot(rf, n.var = 15)
+varImpPlot(rf, n.var = 17)
 ```
 
 ```{r}
@@ -111,7 +116,7 @@ rf %>%
 
 
 ```{r}
-linearmod = glm(Attrition~ MonthlyIncome+ Age+ OverTime+ DailyRate + JobRole + MonthlyRate + TotalWorkingYears+ HourlyRate + DistanceFromHome, data = train, family = "binomial")
+linearmod = glm(Attrition~., data = train, family = "binomial")
 pred = predict(linearmod, test, type = "response")
 pred[pred > 0.5] = "Yes"
 pred[pred < 0.5] = "No"
