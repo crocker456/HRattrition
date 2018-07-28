@@ -15,6 +15,8 @@ library(DataExplorer)
 setwd("~/HRattrition")
 df = read.csv("WA_Fn-UseC_-HR-Employee-Attrition 2.csv")
 df$Over18 = NULL
+df$EmployeeCount = NULL
+df$StandardHours = NULL
 ```
 
 # EDA
@@ -54,7 +56,7 @@ The first model that I fit is a random forest model.
 
 ```{r}
 library(caret)
-split = createDataPartition(df$Attrition, p = 0.6, list = F)
+split = createDataPartition(df$Attrition, p = 0.7, list = F)
 train = df[split,] %>% drop_na()
 test = df[-split,] %>% drop_na()
 ```
@@ -94,7 +96,7 @@ df$Attrition = as.factor(df$Attrition)
 ```{r}
 library(pdp)
 rf %>%
-  partial(pred.var = "MonthlyIncome") %>%
+  partial(pred.var = "DailyRate") %>%
   plotPartial(rug = TRUE, train = train, main = "Monthly Income Partial Dependence Plot")
 ```
 
@@ -115,15 +117,33 @@ rf %>%
 
 
 
+
 ```{r}
-linearmod = glm(Attrition~., data = train, family = "binomial")
-pred = predict(linearmod, test, type = "response")
-pred[pred > 0.5] = "Yes"
-pred[pred < 0.5] = "No"
-pred = as.factor(pred)
-mean(pred == test$Attrition)
-confusionMatrix(pred, test$Attrition)
+ctrl <- trainControl(method = "repeatedcv", repeats = 3)
+regFit <- train(
+  Attrition ~ .,
+  data = train %>% drop_na(),
+  trControl = ctrl,
+  method = "glm",
+  #family = "binomial",
+  ## Center and scale the predictors for the training
+  ## set and all future samples.
+  preProc = c("center", "scale"),
+  tuneLength = 10
+)
 ```
+
+```{r}
+pred = predict(regFit, test, type = "prob")
+pred2 = predict(regFit, test)
+confusionMatrix(pred2, test$Attrition)
+```
+
+```{r}
+data.frame(pred) %>% select(No) %>% ggplot(aes(No))+ 
+  geom_histogram(bins=50)
+```
+
 
 ```{r}
 library(MASS)
