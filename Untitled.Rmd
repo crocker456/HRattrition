@@ -1,0 +1,83 @@
+---
+title: "HR Attrition"
+output: html_notebook
+---
+
+# Introduction:
+
+In this notebook I will be looking at IBM's employee attrition data obtained from Kaggle https://www.kaggle.com/pavansubhasht/ibm-hr-analytics-attrition-dataset
+
+My goal in this notebook is to predict the likeklihood of employees leaving teh company and assessing the impact this will have on the company.
+```{r}
+library(tidyverse)
+library(caret)
+library(DataExplorer)
+setwd("~/HRattrition")
+df = read.csv("WA_Fn-UseC_-HR-Employee-Attrition 2.csv")
+```
+
+# EDA
+
+```{r}
+#taking a quick look at the data 
+df %>% head()
+```
+
+```{r}
+df %>% plot_histogram()
+```
+
+```{r}
+library(corrplot)
+df %>% select_if(is.numeric) %>% drop_na()
+```
+
+```{r}
+df %>% plot_correlation()
+```
+
+
+
+```{r}
+library(randomForest)
+rf =randomForest::randomForest(Attrition~., data = df)
+```
+
+```{r}
+varImpPlot(rf)
+```
+
+
+```{r}
+library(caret)
+split = createDataPartition(df$Attrition, p = 0.7, list = F)
+train = df[split,] %>% drop_na()
+test = df[-split,] %>% drop_na()
+```
+
+```{r}
+df$Attrition = as.factor(df$Attrition)
+```
+
+```{r}
+df %>% ggplot(aes(Attrition)) +
+  geom_bar()
+```
+
+
+```{r}
+ctrl <- trainControl(method = "repeatedcv", repeats = 10, summaryFunction = twoClassSummary)
+plsFit <- train(
+  Attrition ~.,
+  data = train,
+  trControl = ctrl,
+  method = "glm"
+)
+```
+
+
+```{r}
+linearmod = glm(Attrition~ MonthlyIncome+ Age+ OverTime+ DailyRate + JobRole + MonthlyRate + TotalWorkingYears+ HourlyRate + DistanceFromHome, data = df, family = "binomial")
+summary(linearmod)
+```
+
