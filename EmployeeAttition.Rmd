@@ -32,6 +32,8 @@ The plot_histogram() function from DataExplorer is useful to plot the distributi
 df %>% plot_histogram()
 ```
 
+There is no missing values in the whole dataset.  This is helpful because missing values are problematic when modeling.  
+
 ```{r}
 df %>% plot_missing()
 ```
@@ -42,7 +44,7 @@ A quick correlation matrix of the numeric features higlights that WorklifeBalanc
 df %>% select_if(is.numeric) %>%  plot_correlation(type = "c")
 ```
 
-The varible of interest for prediction is Attrition a 2 level factor that indicated whether turnover occured with the given observation.  I plot a simple barplot of the Attrition variable.
+The varible of interest for prediction is _Attrition_ a 2 level factor that indicated whether turnover occured with the given observation.  I plot a simple barplot of the Attrition variable.
 
 
 ```{r}
