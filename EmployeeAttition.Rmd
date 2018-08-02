@@ -54,19 +54,23 @@ df %>% ggplot(aes(Attrition)) +
 ```
 # Modeling 
 
-The first model that I fit is a random forest model.  
+The first model that I will fit is a random forest model using the randomForest package.  Random forests are my favorite model.  They are quite accurate and provide alot of important information about the relationship between the response variable and the predictors.
 
 ```{r}
+# I import the caret library which I will use throughout this analysis 
 library(caret)
+# I define a 70 - 30 train test split in the data.
 split = createDataPartition(df$Attrition, p = 0.7, list = F)
-train = df[split,] %>% drop_na()
-test = df[-split,] %>% drop_na()
+train = df[split,] 
+test = df[-split,] 
 ```
 
-
+The Random forest model is fairly accurate on the held out test set. It is noteable that specificity is quite low in the model.  This hihglights the fact the model is having a difficult time distinguishing between true and false negatives. This moodel does not do the best at predicting employees that do actually end up leaving the company.
 
 ```{r}
 library(randomForest)
+
+# I fit a random forest using the default parameters
 rf =randomForest::randomForest(Attrition~., data = train)
 pred = predict(rf, test, type = "response")
 #pred[pred > 0.5] = "Yes"
@@ -78,16 +82,15 @@ confusionMatrix(pred, test$Attrition)
 rf
 ```
 
-```{r}
-pred2 = predict(rf, test, type = "prob")
-data.frame(pred2) %>% select(No) %>% 
-ggplot(aes(No)) + geom_histogram(bins=50) + ggtitle("Probability of Staying Based on Random Forest")
+According to the random forest model, the Monthly income and age of an employee are the most important indicators of turnover.
 
+```{r}
+plot1= varImpPlot(rf, n.var = 17)
 ```
-
-
 ```{r}
-varImpPlot(rf, n.var = 17)
+df %>% ggplot(aes(MonthlyIncome, DailyRate, color = Attrition))+
+  geom_point()+
+  geom_smooth(method = "lm")
 ```
 
 ```{r}
@@ -121,6 +124,7 @@ rf %>%
 
 
 ```{r}
+set.seed(2017)
 ctrl <- trainControl(method = "repeatedcv", repeats = 3)
 regFit <- train(
   Attrition ~ .,
@@ -138,26 +142,51 @@ regFit <- train(
 ```{r}
 pred = predict(regFit, test, type = "prob")
 pred2 = predict(regFit, test)
-confusionMatrix(pred2, test$Attrition)
+prop.table(confusionMatrix(pred2, test$Attrition)$table)
 ```
 
 ```{r}
-data.frame(pred) %>% select(No) %>% ggplot(aes(No))+ 
-  geom_histogram(bins=50)
+plot(varImp(regFit),top = 15, main = "GLM variable importance", ylab = "Predictor")
+
+```
+
+
+
+```{r}
+summary(regFit$finalModel)
+```
+
+```{r}
+Fit <- train(
+  Attrition ~ .,
+  data = train %>% drop_na(),
+  trControl = ctrl,
+  method = "rf",
+  #family = "binomial",
+  ## Center and scale the predictors for the training
+  ## set and all future samples.
+  preProc = c("center", "scale"),
+  tuneLength = 10
+)
+```
+
+```{r}
+confusionMatrix(Fit)
 ```
 
 
 ```{r}
-library(MASS)
-coef = add_rownames(data.frame(linearmod$coefficients), "coefficent")
-coef %>% ggplot(aes(coefficent,linearmod.coefficients))+
-  geom_bar(stat="identity")+ labs(y="Effect") +
-  theme(axis.text.x = element_text(size = 8, angle = 90))
+plot(varImp(Fit), 15)
 ```
 
 ```{r}
-as.factor(pred)
+df %>% ggplot(aes(EnvironmentSatisfaction, fill = OverTime))+
+  geom_histogram(bins = 30)
 ```
 
+```{r}
+df %>% ggplot(aes(EmployeeSa, fill = OverTime))+
+  geom_density()
+```
 
 
